@@ -8,6 +8,16 @@ var PORT = 3434
 var tls = require('tls')
 var fs = require('fs')
 var allData = [];
+var bufferLib = require("./lib/buffer")
+
+var processData = function(data){
+  try{
+    var buffer = bufferLib.parseBuffer(data)
+    return bufferLib.createResponseBuffer(buffer.id, 255)
+  }catch(e){
+
+  }
+}
 
 var server = tls.createServer({
   pfx : fs.readFileSync('mock.p12'), // mock
@@ -17,60 +27,21 @@ var server = tls.createServer({
               socket.authorized ? 'authorized' : 'unauthorized');
 
   socket.on('data', function(data){
-    allData.push(data)
+    console.log("on data")
+    var returnData = processData(data)
+    console.log(JSON.stringify(returnData))
+
+    socket.write(returnData, 'binary')
   })
   socket.on('end', function(){
-    allData.forEach(function(data){
-      try{
-        var buffer = readBuffer(data)
-        console.log(buffer)
-        socket.write("0")
-      }catch(e){
-        console.log(e)
-        socket.write("1")
-      }
-    })
+    console.log("end")
     socket.end()
   })
 }).listen(PORT)
 
-// https://gist.github.com/rahuloak/4949381
-var readBuffer = function(data) {
-  var buffer = {}
-  var offset = 0;
-  // Command byte
-  buffer.command = data.readUInt8(offset);
+// create returning buffer
 
-  offset++;
-  
-  // Handle enhanced mode
-  if( buffer.command == 1 ) {
-    // Identifier
-    buffer.id = data.readUInt32BE(offset);
-    offset += 4;
-    
-    // Expiration
-    buffer.expiry = data.readUInt32BE(offset);
-    offset += 4;
-  }
-  
-  // Token length
-  buffer.tokenLength = data.readUInt16BE(offset);
-  offset += 2;
-  
-  // Token
-  var tempBuf = new Buffer(buffer.tokenLength);
-  data.copy(tempBuf, 0, offset, offset+buffer.tokenLength);
-  buffer.token = tempBuf.toString('hex');
-  offset += buffer.tokenLength;
-  
-  // Payload length
-  var payloadLength = data.readUInt16BE(offset);
-  offset += 2;
-  
-  // Payload
-  var pBuf = new Buffer(payloadLength);
-  data.copy(pBuf, 0, offset, offset+payloadLength);
-  buffer.payload = pBuf.toString('utf8');
-  return buffer
-}
+/*console.log(JSON.stringify(returnBuffer(1,1)))
+console.log(JSON.stringify(returnBuffer(1,255)))
+console.log(JSON.stringify(returnBuffer(100,1)))
+console.log(JSON.stringify(returnBuffer(100,255)))*/
